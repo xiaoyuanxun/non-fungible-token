@@ -1,7 +1,7 @@
 {
     "canisters": {
       "nft": {
-        "main": "main.mo",
+        "main": "./src/main.mo",
         "type": "motoko"
       }
     },
