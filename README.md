@@ -29,6 +29,8 @@ Yes, this means you can embed your jpegs directly in HTML. Maybe you mint an ima
 
 We also support streaming large assets in and out of the contract 😄.
 
+Check out a demo HTML NFT [here](https://4gpah-faaaa-aaaaf-qabfq-cai.raw.ic0.app/nft/7) 👀.
+
 ## Static Assets - 🟢
 
 We've built in support for mutable static assets. This gives the contract the ability to serve experiences natively. Build a VR frontend that loads NFT assets all in one contract. Build a gallery for your NFT art. Its up to you!
