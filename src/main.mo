@@ -77,6 +77,7 @@ shared({ caller = hub }) actor class Nft() = this {
         assert not INITALIZED and caller == hub;
         contractOwners := Array.append(contractOwners, owners);
         CONTRACT_METADATA := metadata;
+        INITALIZED := true;
     };
 
     public query func getMetadata() : async NftTypes.ContractMetadata {
