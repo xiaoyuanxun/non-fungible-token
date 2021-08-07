@@ -1,5 +1,4 @@
 import Array "mo:base/Array";
-import Base64 "../base64";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
 import Debug "mo:base/Debug";
