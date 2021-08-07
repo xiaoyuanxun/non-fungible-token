@@ -8,11 +8,11 @@ import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import NftTypes "types";
+import Http "httpTypes";
 import Option "mo:base/Option";
 import Prim "mo:⛔";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
-import T "../types";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Trie "mo:base/TrieSet";
@@ -801,11 +801,11 @@ shared({ caller = hub }) actor class Nft() = this {
 
     // Http Interface
 
-    let NOT_FOUND : T.HttpResponseBlob = {status_code = 404; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
-    let BAD_REQUEST : T.HttpResponseBlob = {status_code = 400; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
-    let UNAUTHORIZED : T.HttpResponseBlob = {status_code = 401; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
+    let NOT_FOUND : Http.Response = {status_code = 404; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
+    let BAD_REQUEST : Http.Response = {status_code = 400; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
+    let UNAUTHORIZED : Http.Response = {status_code = 401; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
 
-    public query func http_request(request : T.HttpRequest) : async T.HttpResponseBlob {
+    public query func http_request(request : Http.Request) : async Http.Response {
         Debug.print(request.url);
         let path = Iter.toArray(Text.tokens(request.url, #text("/")));
         
@@ -823,7 +823,7 @@ shared({ caller = hub }) actor class Nft() = this {
         return _handleAssets(request.url);     
     };
 
-    private func _handleAssets(path : Text) : T.HttpResponseBlob {
+    private func _handleAssets(path : Text) : Http.Response {
         Debug.print("Handling asset " # path);
         switch(staticAssets.get(path)) {
             case null {
@@ -845,7 +845,7 @@ shared({ caller = hub }) actor class Nft() = this {
         };
     };
 
-    private func _handleNft(id : Text) : T.HttpResponseBlob {
+    private func _handleNft(id : Text) : Http.Response {
         Debug.print("Here c");
         switch(nfts.get(id)) {
             case null return NOT_FOUND;
@@ -865,7 +865,7 @@ shared({ caller = hub }) actor class Nft() = this {
         }
     };
 
-    private func _handleLargeContent(id : Text, contentType : Text, data : [Blob]) : T.HttpResponseBlob {
+    private func _handleLargeContent(id : Text, contentType : Text, data : [Blob]) : Http.Response {
         Debug.print("Here b");
         let (payload, token) = _streamContent(id, 0, data);
 
@@ -880,7 +880,7 @@ shared({ caller = hub }) actor class Nft() = this {
         };
     };
 
-    public query func http_request_streaming_callback(token : T.StreamingCallbackToken) : async T.StreamingCallbackHttpResponseBlob {
+    public query func http_request_streaming_callback(token : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
         switch(nfts.get(token.key)) {
             case null return {body = Blob.fromArray([]); token = null};
             case (?v) {
@@ -894,7 +894,7 @@ shared({ caller = hub }) actor class Nft() = this {
         }
     };
 
-    private func _streamContent(id : Text, idx : Nat, data : [Blob]) : (Blob, ?T.StreamingCallbackToken) {
+    private func _streamContent(id : Text, idx : Nat, data : [Blob]) : (Blob, ?Http.StreamingCallbackToken) {
         let payload = data[idx];
         let size = data.size();
 
