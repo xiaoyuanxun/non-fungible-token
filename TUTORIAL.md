@@ -2,8 +2,8 @@
 
 Woo! Lets you going.
 
-
-## Local
+## Deploying
+### Local
 
 First spin up a dfx instance using 
 
@@ -31,7 +31,7 @@ Now you're ready to initialize the contract. The following is an example initial
 dfx canister call nft init '(vec {principal "aaaaa-aa"}, record {name = "Cool Contract"; symbol = "🥚"})'
 ```
 
-## Prod
+### Prod
 
 First, grab your principalId just like you did when deploying locally
 
@@ -56,6 +56,18 @@ Now, initialize the canister. Note, we have to make sure we're using our wallet 
 ```bash
 dfx canister --network ic --wallet my-wallet-canister call nft init '(vec {principal "my-principal"}, record {name = "Cool Contract"; symbol = "🥚"})'
 ```
+
+## Minting
+
+At the moment, we only have a frontend interface for minting deployed on the IC. Locally, you'll have to get a bit creative for awhile. 
+
+If you've deployed your contract on the IC you can visit [our dashboard](https://xe5ii-jiaaa-aaaaf-qaaya-cai.raw.ic0.app/nft/admin). Login, and grab your new userId. With the new userId call
+
+```bash
+dfx canister --network ic --no-wallet call nft updateContractOwners '(record {user = principal "your-dash-id"; isAuthorized = true})' 
+```
+
+Now just plug your contractId into the dashboard and you're all set!
 
 ## Notes
 
