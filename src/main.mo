@@ -544,6 +544,7 @@ shared({ caller = hub }) actor class Nft() = this {
            };
         };
 
+        // Add the newly minted egg to the NTFs of `owner`.
         MapHelper.add<Principal, Text>(ownerToNft, owner, thisId, MapHelper.textEqual(thisId));
         nftToOwner.put(thisId, owner);
 
@@ -637,8 +638,10 @@ shared({ caller = hub }) actor class Nft() = this {
             };
         };
 
+        // Add the transfered NFT to the NTFs of the recipient.
         MapHelper.add<Principal, Text>(ownerToNft, transferRequest.to, transferRequest.id, MapHelper.textEqual(transferRequest.id));
-        MapHelper.remove<Principal, Text>(ownerToNft, tokenOwner, transferRequest.id, MapHelper.textNotEqual(transferRequest.id));
+        // Remove the transfered NFT from the previous NTF owner.
+        MapHelper.filter<Principal, Text>(ownerToNft, tokenOwner, transferRequest.id, MapHelper.textNotEqual(transferRequest.id));
 
         nftToOwner.put(transferRequest.id, transferRequest.to);
         authorized.put(transferRequest.id, []);
@@ -667,7 +670,7 @@ shared({ caller = hub }) actor class Nft() = this {
                 };
             };
             case (false) {
-                MapHelper.remove<Text, Principal>(authorized, r.id, r.user, func (v : Principal) {v != r.user});
+                MapHelper.filter<Text, Principal>(authorized, r.id, r.user, func (v : Principal) {v != r.user});
             };
         };
         ignore _emitEvent({

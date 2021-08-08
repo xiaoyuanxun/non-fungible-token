@@ -79,9 +79,9 @@ module {
         return true;
     };
 
-    // Removes all elements based on the given seach function `f`.
+    // Filters out all elements based on the given seach function `f`.
     // If no elements match, the entry is removed from the hash map.
-    public func remove<K, V>(
+    public func filter<K, V>(
         // Hash map to add to.
         map : HashMap.HashMap<K, [V]>,
         // Key of the array to add to.
