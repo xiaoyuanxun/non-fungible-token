@@ -50,3 +50,5 @@ switch (map.get(p1)) {
         assert(vs == ["bar"]);
     };
 };
+
+Debug.print("PASS: MapHelper");
