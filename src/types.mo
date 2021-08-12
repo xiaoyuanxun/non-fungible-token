@@ -97,7 +97,6 @@ module {
         topupAmount : Nat;
     };
 
-    public type StaticAsset = {contentType : Text; payload : [Blob]};
     public type ContractInfo = {
         heap_size : Nat; 
         memory_size : Nat;
@@ -107,18 +106,18 @@ module {
         cycles : Nat; 
         authorized_users : [Principal]
     };
-    
+
     public type StagedWrite = {
         #Init : {size : Nat; callback : ?Callback};
         #Chunk : {chunk : Blob; callback : ?Callback};
     };
 
     public type Callback = shared () -> async ();
-
-    public type AssetRequest = {
-        #Remove : {name : Text; callback : ?Callback};
-        #Put : {name : Text; contentType : Text; payload : {#Payload : Blob; #StagedData}; callback : ?Callback};
-        #StagedWrite : StagedWrite;
+    public func notify(callback : ?Callback) : async () {
+        switch(callback) {
+            case null   return;
+            case (? cb) {ignore cb()};
+        };
     };
 
     public type Value = {
