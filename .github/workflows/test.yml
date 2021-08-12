@@ -8,4 +8,5 @@ jobs:
         with:
           dfx-version: 0.7.2
           install-moc: true
+      - run: for i in src/*.mo ; do moc --package base $(dfx cache show)/base -r $i ; done
       - run: for i in test/*.mo ; do moc --package base $(dfx cache show)/base -r $i ; done

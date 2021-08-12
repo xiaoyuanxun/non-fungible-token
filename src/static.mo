@@ -16,12 +16,12 @@ module Static {
     public type AssetRequest = {
         // Remove asset with the given name.
         #Remove : {
-            name : Text;
+            key : Text;
             callback : ?NftTypes.Callback;
         };
         // Inserts/Overwrites the asset.
         #Put : {
-            name : Text;
+            key : Text;
             contentType : Text;
             payload : {
                 #Payload : Blob;
@@ -106,7 +106,7 @@ module Static {
                     switch(v.payload) {
                         case(#Payload(data)) {
                             staticAssets.put(
-                                v.name,
+                                v.key,
                                 {
                                     contentType = v.contentType;
                                     payload     = [data];
@@ -115,7 +115,7 @@ module Static {
                         };
                         case (#StagedData) {
                             staticAssets.put(
-                                v.name,
+                                v.key,
                                 {
                                     contentType = v.contentType;
                                     payload = stagedAssetData.toArray()
@@ -129,7 +129,7 @@ module Static {
                 };
 
                 case(#Remove(v)) {
-                    staticAssets.delete(v.name);
+                    staticAssets.delete(v.key);
                     ignore NftTypes.notify(v.callback);
                 };
 
