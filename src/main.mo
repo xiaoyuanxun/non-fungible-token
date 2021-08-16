@@ -6,6 +6,7 @@ import ExperimentalCycles "mo:base/ExperimentalCycles";
 import Hash "mo:base/Text";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
+import MapHelper "mapHelper";
 import Nat "mo:base/Nat";
 import NftTypes "types";
 import Http "httpTypes";
@@ -544,7 +545,8 @@ shared({ caller = hub }) actor class Nft() = this {
            };
         };
 
-        MAP_HELPER.add<Principal, Text>(ownerToNft, owner, thisId, func (v : Text) : Bool { v == thisId});
+        // Add the newly minted egg to the NTFs of `owner`.
+        MapHelper.add<Principal, Text>(ownerToNft, owner, thisId, MapHelper.textEqual(thisId));
         nftToOwner.put(thisId, owner);
 
         ignore _emitEvent({
@@ -637,8 +639,10 @@ shared({ caller = hub }) actor class Nft() = this {
             };
         };
 
-        MAP_HELPER.add<Principal, Text>(ownerToNft, transferRequest.to, transferRequest.id, func (v : Text) : Bool { v == transferRequest.id});
-        MAP_HELPER.remove<Principal, Text>(ownerToNft, tokenOwner, transferRequest.id, func (v : Text) : Bool { v != transferRequest.id});
+        // Add the transfered NFT to the NTFs of the recipient.
+        MapHelper.add<Principal, Text>(ownerToNft, transferRequest.to, transferRequest.id, MapHelper.textEqual(transferRequest.id));
+        // Remove the transfered NFT from the previous NTF owner.
+        MapHelper.filter<Principal, Text>(ownerToNft, tokenOwner, transferRequest.id, MapHelper.textNotEqual(transferRequest.id));
 
         nftToOwner.put(transferRequest.id, transferRequest.to);
         authorized.put(transferRequest.id, []);
@@ -661,13 +665,13 @@ shared({ caller = hub }) actor class Nft() = this {
 
         switch(r.isAuthorized) {
             case (true) {
-                switch(MAP_HELPER.addIfNotLimit<Text, Principal>(authorized, r.id, r.user, AUTHORIZED_LIMIT, func (v : Principal) {v == r.user})) {
+                switch(MapHelper.addIfNotLimit<Text, Principal>(authorized, r.id, r.user, AUTHORIZED_LIMIT, MapHelper.principalEqual(r.user))) {
                     case true {};
                     case false {return #err(#AuthorizedPrincipalLimitReached(AUTHORIZED_LIMIT))};
                 };
             };
             case (false) {
-                MAP_HELPER.remove<Text, Principal>(authorized, r.id, r.user, func (v : Principal) {v != r.user});
+                MapHelper.filter<Text, Principal>(authorized, r.id, r.user, func (v : Principal) {v != r.user});
             };
         };
         ignore _emitEvent({
@@ -734,54 +738,6 @@ shared({ caller = hub }) actor class Nft() = this {
         };
 
         return #err(#Unauthorized);
-    };
-
-    let MAP_HELPER = module {
-        public func add<K, V>(map : HashMap.HashMap<K, [V]>, k : K, v : V, f : V -> Bool) {
-            switch(map.get(k)) {
-                case null {map.put(k, [v])};
-                case (?existing) {
-                    switch(Array.find<V>(existing, f)) {
-                        case null {
-                            map.put(k, Array.append(existing, [v]));
-                        };
-                        case (?v) {}; // exists do nothing..
-                    }
-                };
-            };
-        };
-        
-        public func addIfNotLimit<K, V>(map : HashMap.HashMap<K, [V]>, k : K, v : V, limit : Nat, f : V -> Bool) : Bool {
-            switch(map.get(k)) {
-                case null {map.put(k, [v])};
-                case (?existing) {
-                    if (existing.size() >= limit) {
-                        return false;
-                    };
-                    switch(Array.find<V>(existing, f)) {
-                        case null {
-                            map.put(k, Array.append(existing, [v]));
-                        };
-                        case (?v) {}; // exists do nothing..
-                    }
-                };
-            };
-            return true;
-        };
-
-        public func remove<K, V>(map : HashMap.HashMap<K, [V]>, k : K, v : V, f : V -> Bool) {
-            switch(map.get(k)) {
-                case null {};
-                case (?existing) {
-                    let new = Array.filter<V>(existing, f);
-                    if (new.size() > 0) {
-                        map.put(k, new);
-                    } else {
-                        map.delete(k);
-                    }
-                };
-            };
-        }
     };
 
     public shared ({caller = caller}) func setEventCallback(cb : NftTypes.EventCallback) : async () {
