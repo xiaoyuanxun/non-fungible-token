@@ -1,13 +1,8 @@
 import Array "mo:base/Array";
-import Blob "mo:base/Blob";
-import Buffer "mo:base/Buffer";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
-import Hash "mo:base/Text";
-import HashMap "mo:base/HashMap";
 import Http "http";
 import Iter "mo:base/Iter";
 import MapHelper "mapHelper";
-import Nat "mo:base/Nat";
 import Prim "mo:⛔";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
@@ -15,19 +10,20 @@ import Static "static";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Token "token";
-import Trie "mo:base/TrieSet";
 import Types "types";
 
-shared({ caller = hub }) actor class Nft() = this {
-    var MAX_RESULT_SIZE_BYTES = 1_000_000; //1MB Default
+shared({ caller = hub }) actor class Hub() = this {
+    var MAX_RESULT_SIZE_BYTES     = 1_000_000; // 1MB Default
     var HTTP_STREAMING_SIZE_BYTES = 1_900_000;
 
-    stable var CONTRACT_METADATA : Types.ContractMetadata = {name = "none"; symbol = "none"};
+    stable var CONTRACT_METADATA : Types.ContractMetadata = {
+        name   = "none"; 
+        symbol = "none";
+    };
     stable var INITALIZED : Bool = false;
 
-    stable var TOPUP_AMOUNT = 2_000_000;
-    stable var AUTHORIZED_LIMIT = 25;
-    stable var BROKER_CALL_LIMIT = 25;
+    stable var TOPUP_AMOUNT             = 2_000_000;
+    stable var BROKER_CALL_LIMIT        = 25;
     stable var BROKER_FAILED_CALL_LIMIT = 25;
 
     stable var id          = 0;
