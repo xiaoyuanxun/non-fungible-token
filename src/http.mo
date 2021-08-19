@@ -21,12 +21,6 @@ module Http {
         streaming_strategy : ?StreamingStrategy;
     };
 
-    public type StreamingCallbackToken =  {
-        content_encoding : Text;
-        index            : Nat;
-        key              : Text;
-    };
-
     public type StreamingStrategy = {
         #Callback: {
             callback : StreamingCallback;
@@ -35,6 +29,12 @@ module Http {
     };
 
     public type StreamingCallback = query (StreamingCallbackToken) -> async (StreamingCallbackResponse);
+
+    public type StreamingCallbackToken =  {
+        content_encoding : Text;
+        index            : Nat;
+        key              : Text;
+    };
 
     public type StreamingCallbackResponse = {
         body  : Blob;
