@@ -60,14 +60,6 @@ module {
         isPrivate : Bool;
     };
 
-    public type NftEgg = {
-        payload : {#Payload : [Nat8]; #StagedData};
-        contentType : Text;
-        owner : ?Principal;
-        properties : ?Property;
-        isPrivate : Bool;
-    };
-
     public type PublicNft = {
         id : Text;
         payload : PayloadResult;
