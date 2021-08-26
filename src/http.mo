@@ -3,8 +3,6 @@ import HashMap "mo:base/HashMap";
 import Option "mo:base/Option";
 
 module Http {
-    // NOTE: Use of snake_case, see pull#5.
-
     public type Request = {
         body    : Blob;
         headers : [HeaderField];

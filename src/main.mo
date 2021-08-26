@@ -1,5 +1,6 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
+import Event "event";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 import Http "http";
 import Iter "mo:base/Iter";
@@ -17,7 +18,7 @@ shared({ caller = hub }) actor class Hub() = this {
     var MAX_RESULT_SIZE_BYTES     = 1_000_000; // 1MB Default
     var HTTP_STREAMING_SIZE_BYTES = 1_900_000;
 
-    stable var CONTRACT_METADATA : Types.ContractMetadata = {
+    stable var CONTRACT_METADATA : ContractMetadata = {
         name   = "none"; 
         symbol = "none";
     };
@@ -35,7 +36,7 @@ shared({ caller = hub }) actor class Hub() = this {
             ?Principal, // Owner of the token.
             [Principal] // Authorized principals.
         ),
-        Types.Nft // NFT data.
+        Token.Token, // NFT data.
     )] = [];
     let nfts = Token.NTFs(
         id, 
@@ -50,13 +51,13 @@ shared({ caller = hub }) actor class Hub() = this {
     let staticAssets = Static.Assets(staticAssetsEntries);
     
     stable var contractOwners : [Principal] = [hub];
-    
-    stable var messageBrokerCallback : ?Types.EventCallback = null;
+
+    stable var messageBrokerCallback : ?Event.Callback = null;
     stable var messageBrokerCallsSinceLastTopup : Nat = 0;
     stable var messageBrokerFailedCalls : Nat = 0;
 
     public type UpdateEventCallback = {
-        #Set : Types.EventCallback;
+        #Set : Event.Callback;
         #Remove;
     };
 
@@ -75,7 +76,7 @@ shared({ caller = hub }) actor class Hub() = this {
     };
 
     // Returns the event callback status.
-    public shared ({caller}) func getEventCallbackStatus() : async Types.EventCallbackStatus {
+    public shared ({caller}) func getEventCallbackStatus() : async Event.CallbackStatus {
         assert(_isOwner(caller));
         return {
             callback            = messageBrokerCallback;
@@ -104,7 +105,7 @@ shared({ caller = hub }) actor class Hub() = this {
     // @pre: isOwner
     public shared({caller}) func init(
         owners   : [Principal],
-        metadata : Types.ContractMetadata,
+        metadata : ContractMetadata,
     ) : async () {
         assert(not INITALIZED and caller == hub);
         contractOwners    := Array.append(contractOwners, owners);
@@ -147,8 +148,13 @@ shared({ caller = hub }) actor class Hub() = this {
         #ok();
     };
 
+    public type ContractMetadata = {
+        name   : Text;
+        symbol : Text;
+    };
+
     // Returns the meta data of the contract.
-    public query func getMetadata() : async Types.ContractMetadata {
+    public query func getMetadata() : async ContractMetadata {
         CONTRACT_METADATA;
     };
 
@@ -187,9 +193,19 @@ shared({ caller = hub }) actor class Hub() = this {
         await nfts.writeStaged(data);
     };
 
+    public type ContractInfo = {
+        heap_size : Nat; 
+        memory_size : Nat;
+        max_live_size : Nat;
+        nft_payload_size : Nat; 
+        total_minted : Nat; 
+        cycles : Nat; 
+        authorized_users : [Principal]
+    };
+
     // Returns the contract info.
     // @pre: isOwner
-    public shared ({caller}) func getContractInfo() : async Types.ContractInfo {
+    public shared ({caller}) func getContractInfo() : async ContractInfo {
         assert(_isOwner(caller));
         return {
             heap_size        = Prim.rts_heap_size();
@@ -235,7 +251,7 @@ shared({ caller = hub }) actor class Hub() = this {
         let res = await nfts.transfer(to, id);
         ignore _emitEvent({
             createdAt     = Time.now();
-            event         = #NftEvent(
+            event         = #TokenEvent(
                 #Transfer({
                     from = owner; 
                     to   = to; 
@@ -258,7 +274,7 @@ shared({ caller = hub }) actor class Hub() = this {
         };
         ignore _emitEvent({
             createdAt     = Time.now();
-            event         = #NftEvent(
+            event         = #TokenEvent(
                 #Authorize({
                     id           = req.id; 
                     user         = req.p; 
@@ -270,7 +286,7 @@ shared({ caller = hub }) actor class Hub() = this {
         #ok();
     };
 
-    private func _canChange(caller : Principal, id : Text) : Result.Result<Principal,Types.Error> {
+    private func _canChange(caller : Principal, id : Text) : Result.Result<Principal, Types.Error> {
         let owner = switch (nfts.ownerOf(id)) {
             case (#err(e)) {
                 if (not _isOwner(caller)) return #err(e);
@@ -299,7 +315,7 @@ shared({ caller = hub }) actor class Hub() = this {
     };
 
     // Gets the token with the given identifier.
-    public shared({caller}) func tokenByIndex(id : Text) : async Result.Result<Types.PublicNft, Types.Error> {
+    public shared({caller}) func tokenByIndex(id : Text) : async Result.Result<Token.PublicToken, Types.Error> {
         switch(nfts.getToken(id)) {
             case (#err(e)) { return #err(e); };
             case (#ok(v)) {
@@ -308,7 +324,7 @@ shared({ caller = hub }) actor class Hub() = this {
                         return #err(#Unauthorized);
                     };
                 };
-                var payloadResult : Types.PayloadResult = #Complete(v.payload[0]);
+                var payloadResult : Token.PayloadResult = #Complete(v.payload[0]);
                 if (v.payload.size() > 1) {
                     payloadResult := #Chunk({
                         data       = v.payload[0]; 
@@ -333,7 +349,7 @@ shared({ caller = hub }) actor class Hub() = this {
     };
     
     // Gets the token chuck with the given identifier and page number.
-    public shared ({caller}) func tokenChunkByIndex(id : Text, page : Nat) : async Types.ChunkResult {
+    public shared ({caller}) func tokenChunkByIndex(id : Text, page : Nat) : async Result.Result<Token.Chunk, Types.Error> {
         switch (nfts.getToken(id)) {
             case (#err(e)) { return #err(e); };
             case (#ok(v)) {
@@ -366,8 +382,8 @@ shared({ caller = hub }) actor class Hub() = this {
         };
     };
 
-    private func _emitEvent(event : Types.EventMessage) : async () {
-        let emit = func(broker : Types.EventCallback, msg : Types.EventMessage) : async () {
+    private func _emitEvent(event : Event.Message) : async () {
+        let emit = func(broker : Event.Callback, msg : Event.Message) : async () {
             try {
                 await broker(msg);
                 messageBrokerCallsSinceLastTopup := messageBrokerCallsSinceLastTopup + 1;

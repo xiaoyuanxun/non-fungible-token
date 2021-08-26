@@ -22,6 +22,51 @@ module Token {
         isAuthorized : Bool;
     };
 
+    public type Token = {
+        payload     : [Blob];
+        contentType : Text;
+        createdAt   : Int;
+        properties  : ?Property;
+        isPrivate   : Bool;
+    };
+
+    public type PublicToken = {
+        id          : Text;
+        payload     : PayloadResult;
+        contentType : Text;
+        owner       : Principal;
+        createdAt   : Int;
+        properties  : ?Property;
+    };
+
+    public type PayloadResult = {
+        #Complete : Blob;
+        #Chunk    : Chunk;
+    };
+
+    public type Chunk = {
+        data       : Blob; 
+        nextPage   : ?Nat; 
+        totalPages : Nat;
+    };
+
+    public type Property = {
+        name      : Text; 
+        value     : Value; 
+        immutable : Bool;
+    };
+
+    public type Value = {
+        #Int : Int; 
+        #Nat : Nat;
+        #Float : Float;
+        #Text : Text; 
+        #Bool : Bool; 
+        #Class : [Property]; 
+        #Principal : Principal;
+        #Empty;
+    }; 
+
     public type Egg = {
         payload : {
             #Payload : [Nat8];
@@ -29,7 +74,7 @@ module Token {
         };
         contentType : Text;
         owner       : ?Principal;
-        properties  : ?Types.Property;
+        properties  : ?Property;
         isPrivate   : Bool;
     };
 
@@ -42,7 +87,7 @@ module Token {
                 ?Principal, // Owner of the token.
                 [Principal] // Authorized principals.
             ), 
-            Types.Nft // NFT data.
+            Token, // NFT data.
         )],
     ) {
         var id = lastID;
@@ -53,7 +98,7 @@ module Token {
 
         var stagedData = Buffer.Buffer<Blob>(0);
 
-        let nfts = HashMap.HashMap<Text, Types.Nft>(
+        let nfts = HashMap.HashMap<Text, Token>(
             nftEntries.size(),
             Text.equal,
             Text.hash,
@@ -90,10 +135,10 @@ module Token {
             };
         };
 
-        public func entries() : Iter.Iter<(Text, (?Principal, [Principal]), Types.Nft)> {
-            return Iter.map<(Text, Types.Nft), (Text, (?Principal, [Principal]), Types.Nft)>(
+        public func entries() : Iter.Iter<(Text, (?Principal, [Principal]), Token)> {
+            return Iter.map<(Text, Token), (Text, (?Principal, [Principal]), Token)>(
                 nfts.entries(),
-                func((t, n) : (Text, Types.Nft)) : (Text, (?Principal, [Principal]), Types.Nft) {
+                func((t, n) : (Text, Token)) : (Text, (?Principal, [Principal]), Token) {
                     let ps = switch (authorized.get(t)) {
                         case (null) { []; };
                         case (? v)  { v;  };
@@ -255,7 +300,7 @@ module Token {
             );
         };
 
-        public func getToken(id : Text) : Result.Result<Types.Nft, Types.Error> {
+        public func getToken(id : Text) : Result.Result<Token, Types.Error> {
             switch (nfts.get(id)) {
                 case (null) { return #err(#NotFound); };
                 case (? v)  { return #ok(v);          };
