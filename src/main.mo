@@ -54,11 +54,26 @@ shared({ caller = hub }) actor class Hub() = this {
     stable var messageBrokerCallsSinceLastTopup : Nat = 0;
     stable var messageBrokerFailedCalls : Nat = 0;
 
-    public shared ({caller}) func setEventCallback(cb : Types.EventCallback) : async () {
-        assert(_isOwner(caller));
-        messageBrokerCallback := ?cb;
+    public type UpdateEventCallback = {
+        #Set : Types.EventCallback;
+        #Remove;
     };
 
+    // Removes or updates the event callback.
+    public shared ({caller}) func updateEventCallback(update : UpdateEventCallback) : async () {
+        assert(_isOwner(caller));
+        // TODO: reset 'failed calls/calls since last topup'?
+        switch (update) {
+            case (#Remove) {
+                messageBrokerCallback := null;  
+            };
+            case (#Set(cb)) {
+                messageBrokerCallback := ?cb;
+            };
+        };
+    };
+
+    // Returns the event callback status.
     public shared ({caller}) func getEventCallbackStatus() : async Types.EventCallbackStatus {
         assert(_isOwner(caller));
         return {
@@ -94,6 +109,41 @@ shared({ caller = hub }) actor class Hub() = this {
         contractOwners    := Array.append(contractOwners, owners);
         CONTRACT_METADATA := metadata;
         INITALIZED        := true;
+    };
+
+    // Updates the access rights of one of the contact owners.
+    public shared({caller}) func updateContractOwners(
+        user          : Principal, 
+        isAuthorized : Bool,
+    ) : async Result.Result<(), Types.Error> {
+        if (not _isOwner(caller)) { return #err(#Unauthorized); };
+
+        switch(isAuthorized) {
+            case (true) {
+                contractOwners := Array.append(
+                    contractOwners,
+                    [user],
+                );
+            };
+            case (false) {
+                contractOwners := Array.filter<Principal>(
+                    contractOwners, 
+                    func(v) { v != user; },
+                );
+            };
+        };
+        ignore _emitEvent({
+            createdAt     = Time.now();
+            event         = #ContractEvent(
+                #ContractAuthorize({
+                    user         = user;
+                    isAuthorized = isAuthorized;
+                }),
+            );
+            topupAmount   = TOPUP_AMOUNT;
+            topupCallback = wallet_receive;
+        });
+        #ok();
     };
 
     // Returns the meta data of the contract.
@@ -166,12 +216,12 @@ shared({ caller = hub }) actor class Hub() = this {
     };
 
     // Returns the tokens of the given principal.
-    public func tokensOf(p : Principal) : async [Text] {
+    public query func balanceOf(p : Principal) : async [Text] {
         nfts.tokensOf(p);
     };
 
     // Returns the owner of the NFT with given identifier.
-    public shared func ownerOf(id : Text) : async Result.Result<Principal, Types.Error> {
+    public query func ownerOf(id : Text) : async Result.Result<Principal, Types.Error> {
         nfts.ownerOf(id);
     };
 
@@ -238,15 +288,16 @@ shared({ caller = hub }) actor class Hub() = this {
     };
 
     // Returns whether the given principal is authorized to change to NFT with the given identifier.
-    public shared func isAuthorized(id : Text, p : Principal) : async Bool {
+    public query func isAuthorized(id : Text, p : Principal) : async Bool {
         nfts.isAuthorized(p, id);
     };
 
     // Returns which principals are authorized to change the NFT with the given identifier.
-    public shared func getAuthorized(id : Text) : async [Principal] {
+    public query func getAuthorized(id : Text) : async [Principal] {
         nfts.getAuthorized(id);
     };
 
+    // Gets the token with the given identifier.
     public shared({caller}) func tokenByIndex(id : Text) : async Result.Result<Types.PublicNft, Types.Error> {
         switch(nfts.getToken(id)) {
             case (#err(e)) { return #err(e); };
@@ -280,6 +331,7 @@ shared({ caller = hub }) actor class Hub() = this {
         }
     };
     
+    // Gets the token chuck with the given identifier and page number.
     public shared ({caller}) func tokenChunkByIndex(id : Text, page : Nat) : async Types.ChunkResult {
         switch (nfts.getToken(id)) {
             case (#err(e)) { return #err(e); };
