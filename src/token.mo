@@ -69,7 +69,7 @@ module Token {
 
     public type Egg = {
         payload : {
-            #Payload : [Nat8];
+            #Payload : Blob;
             #StagedData;
         };
         contentType : Text;
@@ -209,7 +209,7 @@ module Token {
                     nfts.put(thisID, {
                         contentType = egg.contentType;
                         createdAt   = Time.now();
-                        payload     = [Blob.fromArray(v)];
+                        payload     = [v];
                         properties  = egg.properties;
                         isPrivate   = egg.isPrivate;
                     });
