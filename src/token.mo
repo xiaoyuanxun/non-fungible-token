@@ -285,7 +285,7 @@ module Token {
             };
         };
 
-        private query func streamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
+        public query func streamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
             switch(nfts.get(tk.key)) {
                 case null {};
                 case (?v) {

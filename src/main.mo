@@ -1,4 +1,5 @@
 import Array "mo:base/Array";
+import Blob "mo:base/Blob";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 import Http "http";
 import Iter "mo:base/Iter";
@@ -422,4 +423,30 @@ shared({ caller = hub }) actor class Hub() = this {
             };
         };
     };
+
+    public query func http_request_streaming_callback(
+        token : Http.StreamingCallbackToken
+    ) : async Http.StreamingCallbackResponse {
+        switch(nfts.getToken(token.key)) {
+            case (#err(_)) {
+                // TODO: also check static assets?
+                {
+                    body  = Blob.fromArray([]); 
+                    token = null;
+                };
+            };
+            case (#ok(v)) {
+                let (payload, cbt) = Http.streamContent(
+                    token.key, 
+                    token.index, 
+                    v.payload,
+                );
+                {
+                    body  = payload;
+                    token = cbt;
+                };
+            }
+        }
+    };
+
 }
