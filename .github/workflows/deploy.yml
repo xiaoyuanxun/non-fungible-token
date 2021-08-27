@@ -1,0 +1,15 @@
+on:
+  push:
+    branches:
+      - main
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: allusion-be/setup-dfx@v0.2.2
+        with:
+          dfx-version: 0.8.0
+      - run: |
+          dfx start --background
+          dfx deploy

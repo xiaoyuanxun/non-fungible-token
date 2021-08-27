@@ -47,6 +47,10 @@ module Static {
             return staticAssets.entries();
         };
 
+        public func getToken(id : Text) : ?Asset {
+            staticAssets.get(id);
+        };
+
         // Returns a list of all static assets.
         public func list() : [(
             Text, // Name (key).
@@ -71,13 +75,14 @@ module Static {
 
         // Returns a static asset based on the given key (path).
         // If the path is not found `index.html` gets returned (if defined).
-        public func get(key : Text) : Http.Response {
+        // Limitation: a shared function is only allowed as a public field of an actor.
+        public func get(key : Text, callback : Http.StreamingCallback) : Http.Response {
             switch(staticAssets.get(key)) {
                 case null {
                     // If the path was 'index.html' and it was not found, return 404.
                     if (key == "/index.html") return Http.NOT_FOUND();
                     // Otherwise return the index page.
-                    return get("/index.html");
+                    return get("/index.html", callback);
                 };
                 case (?asset) {
                     if (asset.payload.size() == 1) {
@@ -93,7 +98,7 @@ module Static {
                         key,
                         asset.contentType,
                         asset.payload,
-                        streamingCallback,
+                        callback,
                     );
                 };
             };
@@ -143,28 +148,6 @@ module Static {
                             stagedAssetData.add(v.chunk);
                             ignore NftTypes.notify(v.callback);
                         };
-                    };
-                };
-            };
-        };
-
-        // A streaming callback based on static assets.
-        // Returns {[], null} if the asset can not be found.
-        private query func streamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
-            switch(staticAssets.get(tk.key)) {
-                case null return {
-                    body = Blob.fromArray([]);
-                    token = null;
-                };
-                case (? v) {
-                    let (body, token) = Http.streamContent(
-                        tk.key,
-                        tk.index,
-                        v.payload,
-                    );
-                    return {
-                        body = body;
-                        token = token;
                     };
                 };
             };

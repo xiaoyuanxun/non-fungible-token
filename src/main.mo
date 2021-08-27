@@ -724,7 +724,7 @@ shared({ caller = hub }) actor class Nft() = this {
             };
             return _handleNft(path[1]);
         };
-        return staticAssets.get(request.url);
+        return staticAssets.get(request.url, staticStreamingCallback);
     };
 
     // TODO: move to seperate module.
@@ -748,6 +748,28 @@ shared({ caller = hub }) actor class Nft() = this {
                         body = nft.payload[0];
                         streaming_strategy = null;
                     };
+                };
+            };
+        };
+    };
+
+    // A streaming callback based on static assets.
+    // Returns {[], null} if the asset can not be found.
+    public query func staticStreamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
+        switch(staticAssets.getToken(tk.key)) {
+            case null return {
+                body = Blob.fromArray([]);
+                token = null;
+            };
+            case (? v) {
+                let (body, token) = Http.streamContent(
+                    tk.key,
+                    tk.index,
+                    v.payload,
+                );
+                return {
+                    body = body;
+                    token = token;
                 };
             };
         };
