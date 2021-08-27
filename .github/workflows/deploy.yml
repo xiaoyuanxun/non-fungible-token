@@ -7,9 +7,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: allusion-be/setup-dfx@v0.2.2
+      - uses: aviate-labs/setup-dfx@v0.2.2
         with:
           dfx-version: 0.8.0
+          install-moc: true
+      - run: for i in src/*.mo ; do moc --package base $(dfx cache show)/base --check $i ; done
       - run: |
           dfx start --background
           dfx deploy
