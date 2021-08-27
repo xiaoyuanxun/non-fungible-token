@@ -75,7 +75,8 @@ module Static {
 
         // Returns a static asset based on the given key (path).
         // If the path is not found `index.html` gets returned (if defined).
-        // Limitation: a shared function is only allowed as a public field of an actor.
+        //
+        // Limitation: callback is a shared function and is only allowed as a public field of an actor.
         public func get(key : Text, callback : Http.StreamingCallback) : Http.Response {
             switch(staticAssets.get(key)) {
                 case null {
