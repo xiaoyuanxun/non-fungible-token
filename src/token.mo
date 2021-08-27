@@ -307,17 +307,18 @@ module Token {
             };
         };
 
-        public func get(id : Text) : Http.Response {
-            switch (nfts.get(id)) {
+        // Limitation: callback is a shared function and is only allowed as a public field of an actor.
+        public func get(key : Text, callback : Http.StreamingCallback) : Http.Response {
+            switch (nfts.get(key)) {
                 case (null) { Http.NOT_FOUND() };
                 case (? v)  {
                     if (v.isPrivate) return Http.UNAUTHORIZED();
                     if (v.payload.size() > 1) {
                         return Http.handleLargeContent(
-                            id,
+                            key,
                             v.contentType,
                             v.payload,
-                            streamingCallback,
+                            callback,
                         );
                     };
                     return {
@@ -327,29 +328,6 @@ module Token {
                         streaming_strategy = null;
                     };
                 };
-            };
-        };
-
-        public query func streamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
-            switch(nfts.get(tk.key)) {
-                case null {};
-                case (?v) {
-                    if (not v.isPrivate) {
-                        let (body, token) = Http.streamContent(
-                            tk.key,
-                            tk.index,
-                            v.payload,
-                        );
-                        return {
-                            body  = body;
-                            token = token;
-                        };
-                    };
-                };
-            };
-            {
-                body  = Blob.fromArray([]);
-                token = null;
             };
         };
     };

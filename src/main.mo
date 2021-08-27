@@ -413,7 +413,7 @@ shared({ caller = hub }) actor class Hub() = this {
             if (path.size() != 2) {
                 return Http.BAD_REQUEST();
             };
-            return nfts.get(path[1]);
+            return nfts.get(path[1], nftStreamingCallback);
         };
         return staticAssets.get(request.url, staticStreamingCallback);
     };
@@ -437,6 +437,31 @@ shared({ caller = hub }) actor class Hub() = this {
                     token = token;
                 };
             };
+        };
+    };
+
+    // A streaming callback based on NFTs.
+    // Returns {[], null} if the token can not be found.
+    public query func nftStreamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
+        switch(nfts.getToken(tk.key)) {
+            case (#err(e)) {};
+            case (#ok(v)) {
+                if (not v.isPrivate) {
+                    let (body, token) = Http.streamContent(
+                        tk.key,
+                        tk.index,
+                        v.payload,
+                    );
+                    return {
+                        body  = body;
+                        token = token;
+                    };
+                };
+            };
+        };
+        {
+            body  = Blob.fromArray([]);
+            token = null;
         };
     };
 
