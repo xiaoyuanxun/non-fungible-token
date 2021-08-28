@@ -1,19 +1,18 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 import Hash "mo:base/Text";
 import HashMap "mo:base/HashMap";
+import Http "http";
 import Iter "mo:base/Iter";
 import MapHelper "mapHelper";
 import Nat "mo:base/Nat";
 import NftTypes "types";
-import Http "httpTypes";
-import Option "mo:base/Option";
 import Prim "mo:⛔";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
+import Static "static";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Trie "mo:base/TrieSet";
@@ -36,8 +35,8 @@ shared({ caller = hub }) actor class Nft() = this {
     stable var nftEntries : [(Text, NftTypes.Nft)] = [];
     let nfts = HashMap.fromIter<Text, NftTypes.Nft>(nftEntries.vals(), 10, Text.equal, Text.hash);
 
-    stable var staticAssetsEntries : [(Text, NftTypes.StaticAsset)] = [];
-    let staticAssets = HashMap.fromIter<Text, NftTypes.StaticAsset>(staticAssetsEntries.vals(), 10, Text.equal, Text.hash);
+    stable var staticAssetsEntries : [(Text, Static.Asset)] = [];
+    let staticAssets = Static.Assets(staticAssetsEntries);
 
     stable var nftToOwnerEntries : [(Text, Principal)] = [];
     let nftToOwner = HashMap.fromIter<Text, Principal>(nftToOwnerEntries.vals(), 15, Text.equal, Text.hash);
@@ -55,7 +54,6 @@ shared({ caller = hub }) actor class Nft() = this {
     stable var messageBrokerFailedCalls : Nat = 0;
 
     var stagedNftData = Buffer.Buffer<Blob>(0);
-    var stagedAssetData = Buffer.Buffer<Blob>(0);
 
     system func preupgrade() {
         nftEntries := Iter.toArray(nfts.entries());
@@ -119,52 +117,12 @@ shared({ caller = hub }) actor class Nft() = this {
 
     public query ({caller = caller }) func listAssets() : async [(Text, Text, Nat)] {
         assert _isOwner(caller);
-        let assets : [var (Text, Text, Nat)] = Array.init<(Text, Text, Nat)>(staticAssets.size(), ("","",0));
-
-        var idx = 0;
-
-        for ((k, v) in staticAssets.entries()) {
-            var sum = 0;
-            Iter.iterate<Blob>(v.payload.vals(), func(x, _) {sum += x.size()});
-            assets[idx] := (k, v.contentType, sum);
-            idx += 1;
-        };
-
-        return Array.freeze(assets);
+        return staticAssets.list();
     };
 
-    public shared ({caller = caller}) func assetRequest(data : NftTypes.AssetRequest) : async (){
+    public shared ({caller = caller}) func assetRequest(data : Static.AssetRequest) : async (){
         assert _isOwner(caller);
-
-        switch(data) {
-            case(#Put(v)) {
-                switch(v.payload) {
-                    case(#Payload(data)) {
-                        staticAssets.put(v.name, {contentType = v.contentType; payload = [data]});
-                    };
-                    case (#StagedData) {
-                        staticAssets.put(v.name, {contentType = v.contentType; payload = stagedAssetData.toArray()});
-                        stagedAssetData := Buffer.Buffer(0);
-                    };
-                };
-            };
-            case(#Remove({name = name; callback = callback})) {
-                staticAssets.delete(name);
-                ignore _fireAndForgetCallback(callback);
-            };
-            case(#StagedWrite(v)) {
-                switch(v) {
-                    case (#Init({size = size; callback = callback})) {
-                        stagedAssetData := Buffer.Buffer(size);
-                        ignore _fireAndForgetCallback(callback);
-                    };
-                    case (#Chunk({chunk = chunk; callback = callback})) {
-                        stagedAssetData.add(chunk);
-                         ignore _fireAndForgetCallback(callback);
-                    };
-                }
-            }
-        };
+        await staticAssets.handleRequest(data);
     };
 
     public func balanceOf(p : Principal) : async [Text] {
@@ -756,114 +714,87 @@ shared({ caller = hub }) actor class Nft() = this {
         };
     };
 
-    // Http Interface
-
-    let NOT_FOUND : Http.Response = {status_code = 404; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
-    let BAD_REQUEST : Http.Response = {status_code = 400; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
-    let UNAUTHORIZED : Http.Response = {status_code = 401; headers = []; body = Blob.fromArray([]); streaming_strategy = null};
+    // HTTP interface
 
     public query func http_request(request : Http.Request) : async Http.Response {
-        Debug.print(request.url);
         let path = Iter.toArray(Text.tokens(request.url, #text("/")));
-        
-        if (path.size() == 0) {
-            return _handleAssets("/index.html");
-        };
-
-        if (path[0] == "nft") {
+        if (path.size() != 0 and path[0] == "nft") {
             if (path.size() == 1) {
-                return BAD_REQUEST;
+                return Http.BAD_REQUEST();
             };
             return _handleNft(path[1]);
         };
-
-        return _handleAssets(request.url);     
+        return staticAssets.get(request.url, staticStreamingCallback);
     };
 
-    private func _handleAssets(path : Text) : Http.Response {
-        Debug.print("Handling asset " # path);
-        switch(staticAssets.get(path)) {
-            case null {
-                if (path == "/index.html") return NOT_FOUND;
-                return _handleAssets("/index.html");
-            };
-            case (?asset) {
-                if (asset.payload.size() > 1) {
-                    return _handleLargeContent(path, asset.contentType, asset.payload);
-                } else {
-                    return {
-                        body = asset.payload[0];
-                        headers = [("Content-Type", asset.contentType)];
-                        status_code = 200;
-                        streaming_strategy = null;
-                    };
-                }
-            }
-        };
-    };
-
+    // TODO: move to seperate module.
     private func _handleNft(id : Text) : Http.Response {
-        Debug.print("Here c");
         switch(nfts.get(id)) {
-            case null return NOT_FOUND;
+            case null return Http.NOT_FOUND();
             case (?nft) {
-                if (nft.isPrivate) {return UNAUTHORIZED};
+                if (nft.isPrivate) {
+                    return Http.UNAUTHORIZED();
+                };
                 if (nft.payload.size() > 1) {
-                    return _handleLargeContent(id, nft.contentType, nft.payload);
+                    return Http.handleLargeContent(
+                        id, nft.contentType,
+                        nft.payload,
+                        http_request_streaming_callback,
+                    );
                 } else {
                     return {
                         status_code = 200;
                         headers = [("Content-Type", nft.contentType)];
                         body = nft.payload[0];
                         streaming_strategy = null;
-                    }
-                }
+                    };
+                };
             };
-        }
-    };
-
-    private func _handleLargeContent(id : Text, contentType : Text, data : [Blob]) : Http.Response {
-        Debug.print("Here b");
-        let (payload, token) = _streamContent(id, 0, data);
-
-        return {
-            status_code = 200;
-            headers = [("Content-Type", contentType)];
-            body = payload;
-            streaming_strategy = ? #Callback({
-                token = Option.unwrap(token);
-                callback = http_request_streaming_callback;
-            });
         };
     };
 
-    public query func http_request_streaming_callback(token : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
-        switch(nfts.get(token.key)) {
-            case null return {body = Blob.fromArray([]); token = null};
-            case (?v) {
-                if (v.isPrivate) {return {body = Blob.fromArray([]); token = null}};
-                let res = _streamContent(token.key, token.index, v.payload);
+    // A streaming callback based on static assets.
+    // Returns {[], null} if the asset can not be found.
+    public query func staticStreamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
+        switch(staticAssets.getToken(tk.key)) {
+            case null return {
+                body = Blob.fromArray([]);
+                token = null;
+            };
+            case (? v) {
+                let (body, token) = Http.streamContent(
+                    tk.key,
+                    tk.index,
+                    v.payload,
+                );
                 return {
-                    body = res.0;
-                    token = res.1;
-                }
-            }
-        }
+                    body = body;
+                    token = token;
+                };
+            };
+        };
     };
 
-    private func _streamContent(id : Text, idx : Nat, data : [Blob]) : (Blob, ?Http.StreamingCallbackToken) {
-        let payload = data[idx];
-        let size = data.size();
-
-        if (idx + 1 == size) {
-            return (payload, null);
+    public query func http_request_streaming_callback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
+        switch(nfts.get(tk.key)) {
+            case null {};
+            case (?v) {
+                if (not v.isPrivate) {
+                   let (body, token) = Http.streamContent(
+                       tk.key,
+                       tk.index,
+                       v.payload,
+                    );
+                    return {
+                        body = body;
+                        token = token;
+                    };
+                };
+            };
         };
-
-        return (payload, ?{
-            content_encoding = "gzip";
-            index = idx + 1;
-            sha256 = null;
-            key = id;
-        });
+        {
+            body = Blob.fromArray([]);
+            token = null;
+        };
     };
 }
