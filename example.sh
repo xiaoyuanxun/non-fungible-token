@@ -45,7 +45,7 @@ check "$(dfx canister call nft mint "(record{
     contentType = \"\";
     payload     = variant{ Payload = vec{ 0x00 } };
     owner       = null;
-    properties  = null;
+    properties  = vec{};
     isPrivate   = false;
 })")" "(\"0\")"
 

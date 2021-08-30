@@ -7,6 +7,7 @@ import Iter "mo:base/Iter";
 import MapHelper "mapHelper";
 import Prim "mo:⛔";
 import Principal "mo:base/Principal";
+import Property "property";
 import Result "mo:base/Result";
 import Static "static";
 import Text "mo:base/Text";
@@ -318,7 +319,7 @@ shared({ caller = hub }) actor class Hub() = this {
     public shared({caller}) func tokenByIndex(id : Text) : async Result.Result<Token.PublicToken, Types.Error> {
         switch(nfts.getToken(id)) {
             case (#err(e)) { return #err(e); };
-            case (#ok(v)) {
+            case (#ok(v))  {
                 if (v.isPrivate) {
                     if (not nfts.isAuthorized(caller, id) and not _isOwner(caller)) {
                         return #err(#Unauthorized);
@@ -349,7 +350,7 @@ shared({ caller = hub }) actor class Hub() = this {
     };
     
     // Gets the token chuck with the given identifier and page number.
-    public shared ({caller}) func tokenChunkByIndex(id : Text, page : Nat) : async Result.Result<Token.Chunk, Types.Error> {
+    public shared({caller}) func tokenChunkByIndex(id : Text, page : Nat) : async Result.Result<Token.Chunk, Types.Error> {
         switch (nfts.getToken(id)) {
             case (#err(e)) { return #err(e); };
             case (#ok(v)) {
@@ -395,6 +396,51 @@ shared({ caller = hub }) actor class Hub() = this {
                     };
                     properties  = v.properties;
                 });
+            };
+        };
+    };
+
+    // Returns the attributes based on the given query.
+    public query ({caller}) func queryProperties(
+        q : Property.QueryRequest,
+    ) : async Result.Result<Property.Properties, Types.Error> {
+        switch(nfts.getToken(q.id)) {
+            case (#err(e)) { #err(e); };
+            case (#ok(v))  {
+                if (v.isPrivate) {
+                    if (not nfts.isAuthorized(caller, q.id) and not _isOwner(caller)) {
+                        return #err(#Unauthorized);
+                    };
+                };
+                switch (q.mode) {
+                    case (#All)      { #ok(v.properties); };
+                    case (#Some(qs)) { Property.get(v.properties, qs); };
+                };
+            };
+        };
+    };
+
+    // Updates the attributes of the specified NFTs and returns the resulting (updated) attributes.
+    public shared ({caller}) func updateProperties(
+        u : Property.UpdateRequest,
+    ) : async Result.Result<Property.Properties, Types.Error> {
+        switch(nfts.getToken(u.id)) {
+            case (#err(e)) { #err(e); };
+            case (#ok(v))  {
+                if (v.isPrivate) {
+                    if (not nfts.isAuthorized(caller, u.id) and not _isOwner(caller)) {
+                        return #err(#Unauthorized);
+                    };
+                };
+                switch (Property.update(v.properties, u.update)) {
+                    case (#err(e)) { #err(e); };
+                    case (#ok(ps)) {
+                        switch (nfts.updateProperties(u.id, ps)) {
+                            case (#err(e)) { #err(e); };
+                            case (#ok())   { #ok(ps); };
+                        };
+                    };
+                };
             };
         };
     };

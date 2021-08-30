@@ -7,6 +7,7 @@ import Iter "mo:base/Iter";
 import MapHelper "mapHelper";
 import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
+import Property "property";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
@@ -26,7 +27,7 @@ module Token {
         payload     : [Blob];
         contentType : Text;
         createdAt   : Int;
-        properties  : ?Property;
+        properties  : Property.Properties;
         isPrivate   : Bool;
     };
 
@@ -35,7 +36,7 @@ module Token {
         contentType : Text;
         owner       : Principal;
         createdAt   : Int;
-        properties  : ?Property;
+        properties  : Property.Properties;
     };
 
     public type PublicToken = {
@@ -44,7 +45,7 @@ module Token {
         contentType : Text;
         owner       : Principal;
         createdAt   : Int;
-        properties  : ?Property;
+        properties  : Property.Properties;
     };
 
     public type PayloadResult = {
@@ -58,23 +59,6 @@ module Token {
         totalPages : Nat;
     };
 
-    public type Property = {
-        name      : Text; 
-        value     : Value; 
-        immutable : Bool;
-    };
-
-    public type Value = {
-        #Int : Int; 
-        #Nat : Nat;
-        #Float : Float;
-        #Text : Text; 
-        #Bool : Bool; 
-        #Class : [Property]; 
-        #Principal : Principal;
-        #Empty;
-    }; 
-
     public type Egg = {
         payload : {
             #Payload : Blob;
@@ -82,7 +66,7 @@ module Token {
         };
         contentType : Text;
         owner       : ?Principal;
-        properties  : ?Property;
+        properties  : Property.Properties;
         isPrivate   : Bool;
     };
 
@@ -315,6 +299,7 @@ module Token {
             };
         };
 
+        // Returns an NFT based on the given key (identifier).
         // Limitation: callback is a shared function and is only allowed as a public field of an actor.
         public func get(key : Text, callback : Http.StreamingCallback) : Http.Response {
             switch (nfts.get(key)) {
@@ -335,6 +320,23 @@ module Token {
                         body               = v.payload[0];
                         streaming_strategy = null;
                     };
+                };
+            };
+        };
+
+        // @pre: key exists.
+        public func updateProperties(key : Text, ps : Property.Properties) : Result.Result<(), Types.Error> {
+            switch (nfts.get(key)) {
+                case (null)  { #err(#NotFound); };
+                case (? nft) {
+                    nfts.put(key, {
+                        contentType = nft.contentType;
+                        createdAt   = nft.createdAt;
+                        isPrivate   = nft.isPrivate;
+                        payload     = nft.payload;
+                        properties  = ps;
+                    });
+                    #ok();
                 };
             };
         };
