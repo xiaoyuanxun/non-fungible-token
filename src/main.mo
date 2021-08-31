@@ -400,7 +400,7 @@ shared({ caller = hub }) actor class Hub() = this {
         };
     };
 
-    // Returns the attributes based on the given query.
+    // Returns the attributes of an NFT based on the given query.
     public query ({caller}) func queryProperties(
         q : Property.QueryRequest,
     ) : async Result.Result<Property.Properties, Types.Error> {
@@ -420,7 +420,7 @@ shared({ caller = hub }) actor class Hub() = this {
         };
     };
 
-    // Updates the attributes of the specified NFTs and returns the resulting (updated) attributes.
+    // Updates the attributes of an NFT and returns the resulting (updated) attributes.
     public shared ({caller}) func updateProperties(
         u : Property.UpdateRequest,
     ) : async Result.Result<Property.Properties, Types.Error> {
