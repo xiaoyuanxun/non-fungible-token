@@ -375,6 +375,30 @@ shared({ caller = hub }) actor class Hub() = this {
         };
     };
 
+    // Returns the token metadata of an NFT based on the given identifier.
+    public shared ({caller}) func tokenMetadataByIndex(id : Text) : async Result.Result<Token.Metadata, Types.Error> {
+        switch (nfts.getToken(id)) {
+            case (#err(e)) { return #err(e); };
+            case (#ok(v)) {
+                if (v.isPrivate) {
+                    if (not nfts.isAuthorized(caller, id) and not _isOwner(caller)) {
+                        return #err(#Unauthorized);
+                    };
+                };
+                #ok({
+                    contentType = v.contentType;
+                    createdAt   = v.createdAt;
+                    id          = id;
+                    owner       = switch (nfts.ownerOf(id)) {
+                        case (#err(_)) { hub; };
+                        case (#ok(v))  { v;   };
+                    };
+                    properties  = v.properties;
+                });
+            };
+        };
+    };
+
     private func _isOwner(p : Principal) : Bool {
         switch(Array.find<Principal>(contractOwners, func(v) {return v == p})) {
             case (null) { false; };
