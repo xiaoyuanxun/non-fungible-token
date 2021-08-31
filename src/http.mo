@@ -58,14 +58,19 @@ module Http {
         callback    : StreamingCallback,
     ) : Response {
         let (payload, token) = _streamContent(key, 0, data);
-        return {
-            status_code = 200;
-            headers     = [("Content-Type", contentType)];
-            body        = payload;
-            streaming_strategy = ?#Callback({
-                token    = Option.unwrap(token); // Callback token.
-                callback = callback;
-            });
+        {
+            status_code        = 200;
+            headers            = [("Content-Type", contentType)];
+            body               = payload;
+            streaming_strategy = switch (token) {
+                case (null) { null; };
+                case (? tk) {
+                    ?#Callback({
+                        token    = tk;
+                        callback = callback;
+                    });
+                };
+            };
         };
     };
 
