@@ -30,6 +30,14 @@ module Token {
         isPrivate   : Bool;
     };
 
+    public type Metadata = {
+        id          : Text;
+        contentType : Text;
+        owner       : Principal;
+        createdAt   : Int;
+        properties  : ?Property;
+    };
+
     public type PublicToken = {
         id          : Text;
         payload     : PayloadResult;
