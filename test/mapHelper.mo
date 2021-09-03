@@ -1,6 +1,5 @@
 import HashMap "mo:base/HashMap";
 import Principal "mo:base/Principal";
-import Debug "mo:base/Debug";
 
 import H "../src/mapHelper";
 
@@ -50,5 +49,3 @@ switch (map.get(p1)) {
         assert(vs == ["bar"]);
     };
 };
-
-Debug.print("PASS: MapHelper");

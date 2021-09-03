@@ -23,5 +23,6 @@ module {
         #NotFound;
         #InvalidRequest;
         #AuthorizedPrincipalLimitReached : Nat;
+        #Immutable;
     };
 }

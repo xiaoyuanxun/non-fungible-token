@@ -17,7 +17,7 @@ let (id0, owner0) = await nfts.mint(hub, {
     payload     = #Payload(Blob.fromArray([0x00]));
     contentType = contentType;
     owner       = null;
-    properties  = null;
+    properties  = [];
     isPrivate   = false;
 });
 assert(id0 == "0");
@@ -58,7 +58,7 @@ let (id1, owner1) = await nfts.mint(hub, {
     payload     = #StagedData;
     contentType = contentType;
     owner       = ?p0;
-    properties  = null;
+    properties  = [];
     isPrivate   = false;
 });
 assert(id1 == "1");

@@ -86,6 +86,8 @@ wallet_receive()
 - assetRequest(data : AssetRequest)
 - listAssets() : [(Text, Text, Nat)]
 - tokenByIndex(id : Text) : Result.Result<PublicNft, Error>
+- queryProperties(q : QueryRequest) : Result.Result<Properties, Error>
+- updateProperties(u : UpdateRequest) : Result.Result<Properties, Error>
 
 ```motoko
 init(owners : [Principal], metadata : ContractMetadata)
@@ -190,6 +192,22 @@ tokenChunkByIndex(id : Text, page : Nat) : async ChunkResult
 ```
 
 Gets the token chuck with the given identifier and page number.
+
+---
+
+```motoko
+queryProperties(q : QueryRequest) : Result.Result<Properties, Error>
+```
+
+Returns the attributes of an NFT based on the given query.
+
+---
+
+```motoko
+updateProperties(u : UpdateRequest) : Result.Result<Properties, Error>
+```
+
+Updates the attributes of an NFT and returns the resulting (updated) attributes.
 
 ## Http Request
 
