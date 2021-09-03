@@ -4,6 +4,7 @@ import Buffer "mo:base/Buffer";
 import HashMap "mo:base/HashMap";
 import Http "http";
 import Iter "mo:base/Iter";
+import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Types "types";
 
@@ -53,8 +54,11 @@ module Static {
             return assets.entries();
         };
 
-        public func getToken(id : Text) : ?Asset {
-            assets.get(id);
+        public func getToken(id : Text) : Result.Result<Asset, Types.Error> {
+            switch (assets.get(id)) {
+                case (null) { return #err(#NotFound); };
+                case (? v)  { return #ok(v);          };
+            };
         };
 
         // Returns a list of all static assets.

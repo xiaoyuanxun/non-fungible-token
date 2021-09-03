@@ -442,43 +442,71 @@ shared({ caller = hub }) actor class Hub() = this {
         return staticAssets.get(request.url, staticStreamingCallback);
     };
 
+    public query func http_request_streaming_callback(
+        tk : Http.StreamingCallbackToken
+    ) : async Http.StreamingCallbackResponse {
+        if (Text.startsWith(tk.key, #text("nft/"))) {
+            switch (nfts.getToken(tk.key)) {
+                case (#err(_)) { };
+                case (#ok(v))  {
+                    return Http.streamContent(
+                        tk.key, 
+                        tk.index, 
+                        v.payload,
+                    );
+                };
+            };
+        } else {
+            switch (staticAssets.getToken(tk.key)) {
+                case (#err(_)) { };
+                case (#ok(v))  {
+                    return Http.streamContent(
+                        tk.key, 
+                        tk.index, 
+                        v.payload,
+                    );
+                };
+            };
+        };
+        return {
+            body  = Blob.fromArray([]); 
+            token = null;
+        };
+    };
+
     // A streaming callback based on static assets.
     // Returns {[], null} if the asset can not be found.
     public query func staticStreamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
         switch(staticAssets.getToken(tk.key)) {
-            case null return {
-                body = Blob.fromArray([]);
-                token = null;
-            };
-            case (? v) {
-                let (body, token) = Http.streamContent(
+            case (#err(_)) { };
+            case (#ok(v))  {
+                return Http.streamContent(
                     tk.key,
                     tk.index,
                     v.payload,
                 );
-                return {
-                    body = body;
-                    token = token;
-                };
             };
+        };
+        {
+            body = Blob.fromArray([]);
+            token = null;
         };
     };
 
-    // A streaming callback based on NFTs.
-    // Returns {[], null} if the token can not be found.
+    // A streaming callback based on NFTs. Returns {[], null} if the token can not be found.
+    // Expects a key of the following pattern: "nft/{key}".
     public query func nftStreamingCallback(tk : Http.StreamingCallbackToken) : async Http.StreamingCallbackResponse {
-        switch(nfts.getToken(tk.key)) {
-            case (#err(e)) {};
-            case (#ok(v)) {
-                if (not v.isPrivate) {
-                    let (body, token) = Http.streamContent(
-                        tk.key,
-                        tk.index,
-                        v.payload,
-                    );
-                    return {
-                        body  = body;
-                        token = token;
+        let path = Iter.toArray(Text.tokens(tk.key, #text("/")));
+         if (path.size() == 2 and path[0] == "nft") {
+            switch (nfts.getToken(path[1])) {
+                case (#err(e)) {};
+                case (#ok(v))  {
+                    if (not v.isPrivate) {
+                        return Http.streamContent(
+                            "nft/" # tk.key,
+                            tk.index,
+                            v.payload,
+                        );
                     };
                 };
             };
@@ -487,30 +515,5 @@ shared({ caller = hub }) actor class Hub() = this {
             body  = Blob.fromArray([]);
             token = null;
         };
-    };
-
-    public query func http_request_streaming_callback(
-        token : Http.StreamingCallbackToken
-    ) : async Http.StreamingCallbackResponse {
-        switch(nfts.getToken(token.key)) {
-            case (#err(_)) {
-                // TODO: also check static assets?
-                {
-                    body  = Blob.fromArray([]); 
-                    token = null;
-                };
-            };
-            case (#ok(v)) {
-                let (payload, cbt) = Http.streamContent(
-                    token.key, 
-                    token.index, 
-                    v.payload,
-                );
-                {
-                    body  = payload;
-                    token = cbt;
-                };
-            }
-        }
     };
 };

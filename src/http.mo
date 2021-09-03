@@ -57,15 +57,20 @@ module Http {
         data        : [Blob],
         callback    : StreamingCallback,
     ) : Response {
-        let (payload, token) = streamContent(key, 0, data);
-        return {
-            status_code = 200;
-            headers     = [("Content-Type", contentType)];
-            body        = payload;
-            streaming_strategy = ?#Callback({
-                token    = Option.unwrap(token); // Callback token.
-                callback = callback;
-            });
+        let (payload, token) = _streamContent(key, 0, data);
+        {
+            status_code        = 200;
+            headers            = [("Content-Type", contentType)];
+            body               = payload;
+            streaming_strategy = switch (token) {
+                case (null) { null; };
+                case (? tk) {
+                    ?#Callback({
+                        token    = tk;
+                        callback = callback;
+                    });
+                };
+            };
         };
     };
 
@@ -73,6 +78,22 @@ module Http {
     // Returns a callback token if the data is devided in chunks and the index is not the last one.
     // @pre: idx < data.size()
     public func streamContent(
+        key   : Text,
+        index : Nat,
+        data  : [Blob],
+    ) : StreamingCallbackResponse {
+        let (payload, cbt) = _streamContent(
+            key, 
+            index, 
+            data,
+        );
+        {
+            body  = payload;
+            token = cbt;
+        };
+    };
+
+    private func _streamContent(
         key   : Text,
         index : Nat,
         data  : [Blob],
