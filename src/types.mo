@@ -8,21 +8,12 @@ module {
         };
     };
 
-    public type StagedWrite = {
-        #Init : {
-            size     : Nat; 
-            callback : ?Callback};
-        #Chunk : {
-            chunk    : Blob; 
-            callback : ?Callback
-        };
-    };
-
     public type Error = {
         #Unauthorized;
         #NotFound;
         #InvalidRequest;
         #AuthorizedPrincipalLimitReached : Nat;
         #Immutable;
+        #FailedToWrite : Text;
     };
 }

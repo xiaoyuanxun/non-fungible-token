@@ -1,4 +1,5 @@
 import Blob "mo:base/Blob";
+import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
 
@@ -13,71 +14,96 @@ assert(nfts.getTotalMinted() == 0);
 // Check minted egg without owner.
 let hub = Principal.fromText("2ibo7-dia");
 let contentType = "application/octet-stream";
-let (id0, owner0) = await nfts.mint(hub, {
+let (id0, owner0) : (Text, Principal) = switch (await nfts.mint(hub, {
     payload     = #Payload(Blob.fromArray([0x00]));
     contentType = contentType;
     owner       = null;
     properties  = [];
     isPrivate   = false;
-});
-assert(id0 == "0");
-assert(owner0 == hub);
-switch (nfts.ownerOf(id0)) {
-    case (#err(_)) { assert(false); };
-    case (#ok(v)) {
-        assert(v == hub);
-    };
-};
-assert(nfts.tokensOf(hub) == ["0"]);
-let t0 = nfts.getToken(id0);
-switch (nfts.getToken(id0)) {
-    case (#err(_)) { assert(false); };
-    case (#ok(v)) {
-        assert(v.payload == [Blob.fromArray([0x00])]);
-        assert(v.contentType == contentType);
+})) {
+    case (#err(_)) { assert(false); ("0", hub); };
+    case (#ok(id0, owner0)) {
+        assert(id0 == "0");
+        assert(owner0 == hub);
+        switch (nfts.ownerOf(id0)) {
+            case (#err(_)) {
+                assert(false);
+            };
+            case (#ok(v)) {
+                assert(v == hub);
+            };
+        };
+        assert(nfts.tokensOf(hub) == ["0"]);
+        let t0 = nfts.getToken(id0);
+        switch (nfts.getToken(id0)) {
+            case (#err(_)) {
+                assert(false);
+            };
+            case (#ok(v)) {
+                assert(v.payload == [Blob.fromArray([0x00])]);
+                assert(v.contentType == contentType);
+            };
+        };
+        (id0, owner0);
     };
 };
 
 // Check minted egg with owner from staged data.
 let p0 = Principal.fromText("uuc56-gyb");
 // Stage asset.Blob
-await nfts.writeStaged(#Init{
+let id : Text = switch (await nfts.writeStaged(#Init{
     size     = 2;
     callback = null;
-});
-await nfts.writeStaged(#Chunk{
+})) {
+    case (#err(e)) {
+        Debug.print(e);
+        assert(false);
+        "0";
+    };
+    case (#ok(id)) { id; }; 
+};
+ignore await nfts.writeStaged(#Chunk{
+    id        = id;
     chunk     = Blob.fromArray([0x00]);
     callback = null;
 });
-await nfts.writeStaged(#Chunk{
+ignore await nfts.writeStaged(#Chunk{
+    id        = id;
     chunk     = Blob.fromArray([0x01]);
     callback = null;
 });
 
-let (id1, owner1) = await nfts.mint(hub, {
-    payload     = #StagedData;
+switch (await nfts.mint(hub, {
+    payload     = #StagedData(id);
     contentType = contentType;
     owner       = ?p0;
     properties  = [];
     isPrivate   = false;
-});
-assert(id1 == "1");
-assert(owner1 == p0);
-switch (nfts.ownerOf(id1)) {
-    case (#err(_)) { assert(false); };
-    case (#ok(v)) {
-        assert(v == p0);
+})) {
+    case (#err(e)) {
+        Debug.print(e);
+        assert(false);
     };
-};
-assert(nfts.tokensOf(p0) == ["1"]);
-switch (nfts.getToken(id1)) {
-    case (#err(_)) { assert(false); };
-    case (#ok(v)) {
-        assert(v.payload == [
-            Blob.fromArray([0x00]),
-            Blob.fromArray([0x01])
-        ]);
-        assert(v.contentType == contentType);
+    case (#ok(id1, owner1)) {
+        assert(id1 == "1");
+        assert(owner1 == p0);
+        switch (nfts.ownerOf(id1)) {
+            case (#err(_)) { assert(false); };
+            case (#ok(v)) {
+                assert(v == p0);
+            };
+        };
+        assert(nfts.tokensOf(p0) == ["1"]);
+        switch (nfts.getToken(id1)) {
+            case (#err(_)) { assert(false); };
+            case (#ok(v)) {
+                assert(v.payload == [
+                    Blob.fromArray([0x00]),
+                    Blob.fromArray([0x01])
+                ]);
+                assert(v.contentType == contentType);
+            };
+        };
     };
 };
 

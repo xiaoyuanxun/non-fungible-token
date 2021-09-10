@@ -47,7 +47,7 @@ check "$(dfx canister call nft mint "(record{
     owner       = null;
     properties  = vec{};
     isPrivate   = false;
-})")" "(\"0\")"
+})")" "(variant { ok = \"0\" })"
 
 bold "| Check owner (hub) of new NFT: \c"
 check "$(dfx canister call nft ownerOf "(\"0\")")" "(variant { ok = principal \"${hubID}\" })"
