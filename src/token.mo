@@ -70,7 +70,7 @@ module Token {
         isPrivate   : Bool;
     };
 
-    public class NTFs(
+    public class NFTs(
         lastID        : Nat,
         lastTotalSize : Nat,
         nftEntries : [(

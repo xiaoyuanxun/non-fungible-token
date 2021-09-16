@@ -39,7 +39,7 @@ shared({ caller = hub }) actor class Hub() = this {
         ),
         Token.Token, // NFT data.
     )] = [];
-    let nfts = Token.NTFs(
+    let nfts = Token.NFTs(
         id, 
         payloadSize, 
         nftEntries,
