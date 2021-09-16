@@ -4,7 +4,7 @@ import Principal "mo:base/Principal";
 
 import T "../src/token";
 
-var nfts = T.NTFs(0, 0, []);
+var nfts = T.NFTs(0, 0, []);
 assert(nfts.currentID() == 0);
 assert(nfts.payloadSize() == 0);
 assert(Iter.size(nfts.entries()) == 0);
