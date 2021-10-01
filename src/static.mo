@@ -5,7 +5,9 @@ import HashMap "mo:base/HashMap";
 import Http "http";
 import Iter "mo:base/Iter";
 import Result "mo:base/Result";
+import Staged "staged";
 import Text "mo:base/Text";
+import Time "mo:base/Time";
 import Types "types";
 
 module Static {
@@ -32,7 +34,7 @@ module Static {
             callback : ?Types.Callback;
         };
         // Stage (part of) an asset.
-        #StagedWrite : Types.StagedWrite;
+        #StagedWrite : Staged.WriteAsset;
     };
 
     public class Assets(
@@ -41,7 +43,9 @@ module Static {
             Static.Asset // Asset data.
         )],
     ) {
-        var stagedData = Buffer.Buffer<Blob>(0);
+        var stagedData = Staged.empty<Text>(
+            0, Text.equal, Text.hash,
+        );
 
         let assets = HashMap.fromIter<Text, Asset>(
             assetEntries.vals(),
@@ -115,7 +119,7 @@ module Static {
         };
 
         // Handles the given asset request, see AssetRequest for possible actions.
-        public func handleRequest(data : AssetRequest) : async () {
+        public func handleRequest(data : AssetRequest) : async Result.Result<(), Text> {
             switch(data) {
                 case(#Put(v)) {
                     switch(v.payload) {
@@ -129,15 +133,26 @@ module Static {
                             );
                         };
                         case (#StagedData) {
-                            assets.put(
-                                v.key,
-                                {
-                                    contentType = v.contentType;
-                                    payload     = stagedData.toArray();
-                                },
-                            );
+                            switch (stagedData.get(v.key)) {
+                                case (null) {
+                                    return #err("data was not initialized or was removed (passed ttl)");
+                                };
+                                case (? (ttl, data)) {
+                                    if (ttl < Time.now()) {
+                                        stagedData.delete(v.key);
+                                        return #err("data was removed (passed ttl)")
+                                    };
+                                    assets.put(
+                                        v.key,
+                                        {
+                                            contentType = v.contentType;
+                                            payload     = data.toArray();
+                                        },
+                                    );
+                                };
+                            };
                             // Reset staged data.
-                            stagedData := Buffer.Buffer(0);
+                            stagedData.delete(v.key);
                         };
                     };
                     ignore Types.notify(v.callback);
@@ -149,18 +164,47 @@ module Static {
                 };
 
                 case(#StagedWrite(v)) {
+                    // Clean up on every write.
+                    for ((k, (ttl, _)) in stagedData.entries()) {
+                        if (ttl < Time.now()) {
+                            stagedData.delete(k);
+                        };
+                    };
+
                     switch(v) {
                         case (#Init(v)) {
-                            stagedData := Buffer.Buffer(v.size);
+                            stagedData.put(
+                                v.id, (
+                                    Time.now() + Staged.TTL,
+                                    Buffer.Buffer(v.size),
+                                ),
+                            );
                             ignore Types.notify(v.callback);
                         };
                         case (#Chunk(v)) {
-                            stagedData.add(v.chunk);
-                            ignore Types.notify(v.callback);
+                            switch (stagedData.get(v.id)) {
+                                case (null) {
+                                    return #err("data was not initialized or was removed (passed ttl)");
+                                };
+                                case (? (ttl, buffer)) {
+                                    if (ttl < Time.now()) {
+                                        stagedData.delete(v.id);
+                                        return #err("data was removed (passed ttl)")
+                                    };
+                                    let buf = buffer;
+                                    buf.add(v.chunk);
+                                    stagedData.put(v.id, (
+                                        Time.now() + Staged.TTL, // Reset TTL.
+                                        buf,
+                                    ));
+                                    ignore Types.notify(v.callback);
+                                };
+                            };
                         };
                     };
                 };
             };
+            #ok();
         };
 
         // Returns the total length of the list of blobs.

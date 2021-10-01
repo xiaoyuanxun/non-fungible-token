@@ -80,10 +80,10 @@ wallet_receive()
 - updateContractOwners(user : Principal, isAuthorized : Bool) : Result.Result<(), Error>
 - setEventCallback(cb : EventCallback)
 - getContractInfo() : ContractInfo
-- mint(egg : NftEgg) : Text
+- mint(egg : NftEgg) : Result<Text, Error>
 - transfer(transferRequest : TransferRequest) : Result.Result<(), Error>
-- writeStaged(data : StagedWrite)
-- assetRequest(data : AssetRequest)
+- writeStaged(data : WriteNFT) : Result<Text, Error>
+- assetRequest(data : AssetRequest) : Result<(), Error>
 - listAssets() : [(Text, Text, Nat)]
 - tokenByIndex(id : Text) : Result.Result<PublicNft, Error>
 - queryProperties(q : QueryRequest) : Result.Result<Properties, Error>
@@ -123,7 +123,7 @@ Returns the event callback status.
 ---
 
 ```motoko
-mint(egg : NftEgg) : Text
+mint(egg : NftEgg) : Result<Text, Error>
 ```
 
 Mints a new NFT. Assigns the hub as owner if none is given.
@@ -147,7 +147,7 @@ Allows the caller to authorize another principal to act on its behalf.
 ---
 
 ```motoko
-writeStaged(data : StagedWrite)
+writeStaged(data : WriteNFT) : Result<Text, Error>
 ```
 
 Writes a part of an NFT to the staged data.
@@ -156,7 +156,7 @@ Writes a part of an NFT to the staged data.
 ---
 
 ```motoko
-assetRequest(data : AssetRequest)
+assetRequest(data : AssetRequest) : Result<(), Error>
 ```
 
 Allows you to replace delete and stage NFTs.

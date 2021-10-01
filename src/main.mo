@@ -9,6 +9,7 @@ import Prim "mo:⛔";
 import Principal "mo:base/Principal";
 import Property "property";
 import Result "mo:base/Result";
+import Staged "staged";
 import Static "static";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
@@ -170,28 +171,35 @@ shared({ caller = hub }) actor class Hub() = this {
 
     // Mints a new egg.
     // @pre: isOwner
-    public shared ({caller}) func mint(egg : Token.Egg) : async Text {
+    public shared ({caller}) func mint(egg : Token.Egg) : async Result.Result<Text,Types.Error> {
         assert(_isOwner(caller));
-        let (id, owner) = await nfts.mint(Principal.fromActor(this), egg);
-        ignore _emitEvent({
-            createdAt     = Time.now();
-            event         = #ContractEvent(
-                #Mint({
-                    id    = id; 
-                    owner = owner;
-                }),
-            );
-            topupAmount   = TOPUP_AMOUNT;
-            topupCallback = wallet_receive;
-        });
-        id;
+        switch (await nfts.mint(Principal.fromActor(this), egg)) {
+            case (#err(e)) { #err(#FailedToWrite(e)); };
+            case (#ok(id, owner)) {
+                ignore _emitEvent({
+                    createdAt     = Time.now();
+                    event         = #ContractEvent(
+                        #Mint({
+                            id    = id; 
+                            owner = owner;
+                        }),
+                    );
+                    topupAmount   = TOPUP_AMOUNT;
+                    topupCallback = wallet_receive;
+                });
+                #ok(id);
+            };
+        };
     };
 
     // Writes a part of an NFT to the staged data. 
     // Initializing another NFT will destruct the data in the buffer.
-    public shared({caller}) func writeStaged(data : Types.StagedWrite) : async () {
+    public shared({caller}) func writeStaged(data : Staged.WriteNFT) : async Result.Result<Text, Types.Error> {
         assert(_isOwner(caller));
-        await nfts.writeStaged(data);
+        switch (await nfts.writeStaged(data)) {
+            case (#ok(id)) { #ok(id); };
+            case (#err(e)) { #err(#FailedToWrite(e)); };
+        };
     };
 
     public type ContractInfo = {
@@ -228,9 +236,12 @@ shared({ caller = hub }) actor class Hub() = this {
 
     // Allows you to replace delete and stage NFTs.
     // Putting and initializing staged data will overwrite the present data.
-    public shared ({caller}) func assetRequest(data : Static.AssetRequest) : async (){
+    public shared ({caller}) func assetRequest(data : Static.AssetRequest) : async Result.Result<(), Types.Error> {
         assert(_isOwner(caller));
-        await staticAssets.handleRequest(data);
+        switch (await staticAssets.handleRequest(data)) {
+            case (#ok())   { #ok(); };
+            case (#err(e)) { #err(#FailedToWrite(e)); };
+        };
     };
 
     // Returns the tokens of the given principal.

@@ -1,6 +1,7 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
+import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
 import Http "http";
 import Iter "mo:base/Iter";
@@ -9,6 +10,7 @@ import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
 import Property "property";
 import Result "mo:base/Result";
+import Staged "staged";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Types "types";
@@ -61,8 +63,8 @@ module Token {
 
     public type Egg = {
         payload : {
-            #Payload : Blob;
-            #StagedData;
+            #Payload    : Blob;
+            #StagedData : Text;
         };
         contentType : Text;
         owner       : ?Principal;
@@ -88,7 +90,9 @@ module Token {
         var totalSize = lastTotalSize;
         public func payloadSize() : Nat { id; };
 
-        var stagedData = Buffer.Buffer<Blob>(0);
+        var stagedData = Staged.empty<Text>(
+            0, Text.equal, Text.hash,
+        );
 
         let nfts = HashMap.HashMap<Text, Token>(
             nftEntries.size(),
@@ -147,15 +151,40 @@ module Token {
             return nfts.size();
         };
 
-        public func writeStaged(data : Types.StagedWrite) : async () {
+        public func writeStaged(data : Staged.WriteNFT) : async Result.Result<Text, Text> {
             switch (data) {
                 case (#Init(v)) {
-                    stagedData := Buffer.Buffer(v.size);
+                    let id_ = Nat.toText(id);
+                    stagedData.put(
+                        id_, (
+                            Time.now() + Staged.TTL,
+                            Buffer.Buffer(v.size),
+                        ),
+                    );
+                    id += 1;
                     ignore Types.notify(v.callback);
+                    #ok(id_);
                 };
                 case (#Chunk(v)) {
-                    stagedData.add(v.chunk);
-                    ignore Types.notify(v.callback);
+                    switch (stagedData.get(v.id)) {
+                        case (null) {
+                            return #err("data was not initialized or was removed (passed ttl)");
+                        };
+                        case (? (ttl, buffer)) {
+                            if (ttl < Time.now()) {
+                                stagedData.delete(v.id);
+                                return #err("data was removed (passed ttl)")
+                            };
+                            let buf = buffer;
+                            buf.add(v.chunk);
+                            stagedData.put(v.id, (
+                                Time.now() + Staged.TTL, // Reset TTL.
+                                buf,
+                            ));
+                            ignore Types.notify(v.callback);
+                            #ok(v.id);
+                        };
+                    };
                 };
             };
         };
@@ -194,36 +223,50 @@ module Token {
             };
         };
 
-        public func mint(hub : Principal, egg : Egg) : async (Text, Principal) {
-            let thisID = Nat.toText(id);
-            let size   = switch (egg.payload) {
+        public func mint(hub : Principal, egg : Egg) : async Result.Result<(Text, Principal), Text> {
+            let (size, id_) : (Nat, Text) = switch (egg.payload) {
                 case (#Payload(v)) {
-                    nfts.put(thisID, {
+                    let id_ = Nat.toText(id);
+                    id += 1;
+                    nfts.put(id_, {
                         contentType = egg.contentType;
                         createdAt   = Time.now();
                         payload     = [v];
                         properties  = egg.properties;
                         isPrivate   = egg.isPrivate;
                     });
-                    v.size();
+                    (v.size(), id_);
                 };
-                case (#StagedData) {
-                    nfts.put(thisID, {
-                        contentType = egg.contentType;
-                        createdAt   = Time.now();
-                        payload     = stagedData.toArray();
-                        properties  = egg.properties;
-                        isPrivate   = egg.isPrivate;
-                    });
-                    var size = 0;
-                    for (x in stagedData.vals()) {
-                        size := size + x.size();
+                case (#StagedData(id_)) {
+                    switch (stagedData.get(id_)) {
+                        case (null) {
+                            return #err("data was not initialized or was removed (passed ttl)");
+                        };
+                        case (? (ttl, data)) {
+                            if (ttl < Time.now()) {
+                                stagedData.delete(id_);
+                                return #err("data was removed (passed ttl)")
+                            };
+                            nfts.put(id_, {
+                                contentType = egg.contentType;
+                                createdAt   = Time.now();
+                                payload     = data.toArray();
+                                properties  = egg.properties;
+                                isPrivate   = egg.isPrivate;
+                            });
+                            var size = 0;
+                            for (x in data.vals()) {
+                                size := size + x.size();
+                            };
+                            stagedData.put(id_, (
+                                Time.now() + Staged.TTL,
+                                Buffer.Buffer(0),
+                            ));
+                            (size, id_);
+                        };
                     };
-                    stagedData := Buffer.Buffer(0);
-                    size;
                 };
             };
-            id        += 1;
             totalSize += size;
 
             let owner = switch (egg.owner) {
@@ -231,15 +274,15 @@ module Token {
                 case (? v)  { v;   };
             };
 
-            nftToOwner.put(thisID, owner);
+            nftToOwner.put(id_, owner);
             MapHelper.add<Principal, Text>(
                 ownerToNFT,
                 owner,
-                thisID,
-                MapHelper.textEqual(thisID),
+                id_,
+                MapHelper.textEqual(id_),
             );
 
-            (thisID, owner);
+            #ok(id_, owner);
         };
 
         public func transfer(to : Principal, id : Text) : async Result.Result<(), Types.Error> {
