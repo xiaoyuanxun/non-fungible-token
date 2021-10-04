@@ -307,6 +307,8 @@ module Token {
                     );
                 };
             };
+
+            nftToOwner.put(id, to);
             MapHelper.add<Principal, Text>(
                 ownerToNFT, 
                 to,

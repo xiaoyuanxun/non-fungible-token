@@ -131,3 +131,5 @@ assert(nfts.authorize({
 ignore await nfts.transfer(p0, id0);
 assert(nfts.tokensOf(p0) == ["1", "0"]);
 assert(nfts.tokensOf(hub) == []);
+assert(nfts.ownerOf("0") == #ok(p0));
+assert(nfts.ownerOf("1") == #ok(p0));
