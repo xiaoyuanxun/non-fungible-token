@@ -14,6 +14,7 @@ import Staged "staged";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Types "types";
+import MarketMaker "marketMaker";
 
 module Token {
 
@@ -83,6 +84,7 @@ module Token {
             ), 
             Token, // NFT data.
         )],
+        marketMaker : MarketMaker.MarketMaker
     ) {
         var id = lastID;
         public func currentID() : Nat { id; };
@@ -305,6 +307,8 @@ module Token {
                         id, 
                         MapHelper.textNotEqual(id),
                     );
+                    // Delist Token
+                    ignore marketMaker.delistToken(id);
                 };
             };
 
@@ -316,6 +320,39 @@ module Token {
                 MapHelper.textEqual(id),
             );
             #ok();
+        };
+
+        // Market Funcs
+
+        public func handleIncomingPayment(tokenId : Text, purchaser : Principal, amount : MarketMaker.SalesPrice) : async () {
+            switch (getToken(tokenId)) {
+                case (#ok(_)) {};
+                case (#err(_)) {}; // TODO Handle found
+            };
+
+            switch(marketMaker.handleIncomingPayment(tokenId, purchaser, amount)) {
+                case (#ok) {
+                    switch(await transfer(purchaser, tokenId)) {
+                        case (#ok()) {}; // TODO Success
+                        case (#err(v)) {}; // TODO Surface Error
+                    };
+                };
+                case (#err(v)) {};
+            };
+        };
+
+        public func listToken(tokenId : Text, state : MarketMaker.TokenMarketState) : async () {
+            switch (marketMaker.listToken(tokenId, state)) {
+                case (#ok) {};
+                case (#err(v)) {};
+            };
+        };
+
+        public func delistToken(tokenId : Text) : async () {
+            switch (marketMaker.delistToken(tokenId)) {
+                case (#ok) {};
+                case (#err(v)) {};
+            };
         };
 
         public func authorize(req : AuthorizeRequest) : Bool {
