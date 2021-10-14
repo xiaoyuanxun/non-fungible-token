@@ -327,7 +327,7 @@ module Token {
 
         // Market Funcs
 
-        public func handleIncomingPayment(tokenId : Text, purchaser : Principal, amount : MarketMaker.SalesPrice) : async () {
+        public func handleIncomingPayment(tokenId : Text, purchaser : Principal, amount : Types.SalesPrice) : async () {
             switch (getToken(tokenId)) {
                 case (#ok(_)) {};
                 case (#err(_)) {}; // TODO Handle found
@@ -344,17 +344,17 @@ module Token {
             };
         };
 
-        public func listToken(tokenId : Text, state : MarketMaker.TokenMarketState) : async () {
-            switch (marketMaker.listToken(tokenId, state)) {
-                case (#ok) {};
-                case (#err(v)) {};
-            };
+        public func listToken(tokenId : Text, state : MarketMaker.TokenMarketState) : async Result.Result<(), Types.Error> {
+            switch(marketMaker.listToken(tokenId, state)) {
+                case (#ok) {#ok};
+                case (#err(v)) {#err(#MarketError(v))}
+            }
         };
 
-        public func delistToken(tokenId : Text) : async () {
+        public func delistToken(tokenId : Text) : async Result.Result<(), Types.Error> {
             switch (marketMaker.delistToken(tokenId)) {
-                case (#ok) {};
-                case (#err(v)) {};
+                case (#ok) {#ok};
+                case (#err(v)) {#err(#MarketError(v))};
             };
         };
 

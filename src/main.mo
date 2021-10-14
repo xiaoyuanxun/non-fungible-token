@@ -284,6 +284,24 @@ shared({ caller = hub }) actor class Hub() = this {
         res;
     };
 
+    public shared ({caller}) func listToken(id : Text, marketState : MarketMaker.TokenMarketState) : async Result.Result<(), Types.Error> {
+        let owner = switch (_canChange(caller, id)) {
+            case (#err(e)) { return #err(e); };
+            case (#ok(v))  { v; };
+        };
+
+        await nfts.listToken(id, marketState);
+    };
+
+    public shared ({caller}) func delistToken(id : Text) : async Result.Result<(), Types.Error> {
+        let owner = switch (_canChange(caller, id)) {
+            case (#err(e)) { return #err(e); };
+            case (#ok(v))  { v; };
+        };
+
+        await nfts.delistToken(id);
+    };
+
     // Allows the caller to authorize another principal to act on its behalf.
     public shared ({caller}) func authorize(req : Token.AuthorizeRequest) : async Result.Result<(), Types.Error> {
         switch (_canChange(caller, req.id)) {

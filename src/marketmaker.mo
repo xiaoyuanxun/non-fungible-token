@@ -9,30 +9,11 @@ module MarketMaker {
 
     };
 
-    public type SalesPrice = {
-        #ICP : {
-            e8s : Nat64
-        };
-    };
-
     public type TokenMarketState = {
         #BuyItNow : {
-            price : SalesPrice; 
+            price : Types.SalesPrice; 
             meta  : TokenMarketState;
         };
-    };
-
-    public type TokenListStateError = {
-        #AlreadyListed;
-        #NotListed
-    };
-
-    public type TokenPurchaseError = {
-        #TokenNotListed;
-        #NotYetImplemented;
-        #InvalidParameters   : Text;
-        #IncorrectAmountSent : {sent : SalesPrice; ask : SalesPrice};
-        #TransferFailure : Types.Error
     };
 
     public class MarketMaker(tokenStateEntries : [(Text, TokenMarketState)]) {
@@ -45,9 +26,9 @@ module MarketMaker {
             };
         };
 
-        public func listToken(tokenId : Text, listingType : TokenMarketState) : Result.Result<(), TokenListStateError> {
+        public func listToken(tokenId : Text, listingType : TokenMarketState) : Result.Result<(), Types.TokenMarketError> {
             switch (tokenStates.get(tokenId)) {
-                case (?_) {return #err(#AlreadyListed)};
+                case (?_) {return #err(#TokenAlreadyListed)};
                 case null {
                     tokenStates.put(tokenId, listingType);
                     return #ok();
@@ -55,12 +36,12 @@ module MarketMaker {
             };
         };
 
-        public func delistToken(tokenId : Text) : Result.Result<(), TokenListStateError> {
+        public func delistToken(tokenId : Text) : Result.Result<(), Types.TokenMarketError> {
             tokenStates.delete(tokenId);
             #ok();
         };
 
-        public func handleIncomingPayment(tokenId : Text, purchaser : Principal, amount : SalesPrice) : Result.Result<(), TokenPurchaseError> {
+        public func handleIncomingPayment(tokenId : Text, purchaser : Principal, amount : Types.SalesPrice) : Result.Result<(), Types.TokenMarketError> {
             switch(tokenStates.get(tokenId)) {
                 case null {return #err(#TokenNotListed)};
                 case (?tokenState) {
@@ -72,13 +53,10 @@ module MarketMaker {
 
                             return #ok();
                         };
-                        case _ {
-                            assert false; // Trap;
-                            return #err(#NotYetImplemented);
-                        };
                     };
                 };
-            }
+            };
+            return #err(#NotYetImplemented);
         };
 
         public func entries() : Iter.Iter<(Text, TokenMarketState)> {
