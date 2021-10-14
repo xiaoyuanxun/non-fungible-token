@@ -44,11 +44,13 @@ shared({ caller = hub }) actor class Hub() = this {
     )] = [];
     stable var marketEntries : [(Text, MarketMaker.TokenMarketState)] = [];
 
+    let marketMaker = MarketMaker.MarketMaker(marketEntries);
+
     let nfts = Token.NFTs(
         id, 
         payloadSize, 
         nftEntries,
-        MarketMaker.MarketMaker(marketEntries)
+        marketMaker,
     );
 
     stable var staticAssetsEntries : [(
@@ -99,6 +101,7 @@ shared({ caller = hub }) actor class Hub() = this {
         payloadSize         := nfts.payloadSize();
         nftEntries          := Iter.toArray(nfts.entries());
         staticAssetsEntries := Iter.toArray(staticAssets.entries());
+        marketEntries       := Iter.toArray(marketMaker.entries());
     };
 
     system func postupgrade() {
@@ -106,6 +109,7 @@ shared({ caller = hub }) actor class Hub() = this {
         payloadSize         := 0;
         nftEntries          := [];
         staticAssetsEntries := [];
+        marketEntries       := [];
     };
 
     // Initializes the contract with the given (additional) owners and metadata. Can only be called once.

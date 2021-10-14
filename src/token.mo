@@ -307,10 +307,13 @@ module Token {
                         id, 
                         MapHelper.textNotEqual(id),
                     );
-                    // Delist Token
-                    ignore marketMaker.delistToken(id);
                 };
             };
+
+            // Remove any previous authorizations
+            authorized.put(id, []);
+            // Delist Token
+            ignore marketMaker.delistToken(id);
 
             nftToOwner.put(id, to);
             MapHelper.add<Principal, Text>(

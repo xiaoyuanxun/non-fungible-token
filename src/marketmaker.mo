@@ -1,4 +1,5 @@
 import HashMap "mo:base/HashMap";
+import Iter "mo:base/Iter";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Types "types";
@@ -43,7 +44,7 @@ module MarketMaker {
                 case (?_) true;
             };
         };
-        
+
         public func listToken(tokenId : Text, listingType : TokenMarketState) : Result.Result<(), TokenListStateError> {
             switch (tokenStates.get(tokenId)) {
                 case (?_) {return #err(#AlreadyListed)};
@@ -80,8 +81,8 @@ module MarketMaker {
             }
         };
 
-        private func handleBuyItNow() {
-
+        public func entries() : Iter.Iter<(Text, TokenMarketState)> {
+            return tokenStates.entries();
         };
     };
 }
