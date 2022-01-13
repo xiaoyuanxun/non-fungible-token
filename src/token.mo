@@ -25,11 +25,17 @@ module Token {
         isAuthorized : Bool;
     };
 
+    // public type Property = {
+    //     name      : Text; 
+    //     value     : Value; 
+    //     immutable : Bool; //不可变
+    // };
+
     public type Token = {
         payload     : [Blob];
         contentType : Text;
         createdAt   : Int;
-        properties  : Property.Properties;
+        properties  : Property.Properties; // [Property]
         isPrivate   : Bool;
     };
 
